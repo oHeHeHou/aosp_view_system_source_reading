@@ -138,7 +138,7 @@ static int fb_post(struct framebuffer_device_t* dev, buffer_handle_t buffer)
 }
 
 /*****************************************************************************/
-
+//对系统帧缓冲区初始化
 int mapFrameBufferLocked(struct private_module_t* module)
 {
     // already initialized...
@@ -181,6 +181,7 @@ int mapFrameBufferLocked(struct private_module_t* module)
 
     /*
      * Request NUM_BUFFERS screens (at lest 2 for page flipping)
+     * 虚拟分辨率的高度设置为屏幕分辨率高度的NUM_BUFFERS倍数(这里是2倍，用于分配双缓冲)
      */
     info.yres_virtual = info.yres * NUM_BUFFERS;
 
@@ -193,6 +194,7 @@ int mapFrameBufferLocked(struct private_module_t* module)
     if (ioctl(fd, FBIOPUT_VSCREENINFO, &info) == -1) {
         ALOGW("FBIOPUT_VSCREENINFO failed, page flipping not supported");
 #endif
+        //如果硬件上不支持双缓冲，则虚拟分辨率的高度设置为屏幕分辨率高度
         info.yres_virtual = info.yres;
         flags &= ~PAGE_FLIP;
     }
@@ -208,25 +210,26 @@ int mapFrameBufferLocked(struct private_module_t* module)
     if (ioctl(fd, FBIOGET_VSCREENINFO, &info) == -1)
         return -errno;
 
+    //计算硬件每渲染一屏图形所需要的时间
     uint64_t  refreshQuotient =
     (
             uint64_t( info.upper_margin + info.lower_margin + info.yres )
             * ( info.left_margin  + info.right_margin + info.xres )
-            * info.pixclock
+            * info.pixclock //info.pixclock:屏幕绘制区域打每个点所需要的时间
     );
 
     /* Beware, info.pixclock might be 0 under emulation, so avoid a
      * division-by-0 here (SIGFPE on ARM) */
-    //指定刷新率
+    //计算刷新率
     int refreshRate = refreshQuotient > 0 ? (int)(1000000000000000LLU / refreshQuotient) : 0;
 
     if (refreshRate == 0) {
         // bleagh, bad info from the driver
-        refreshRate = 60*1000;  // 60 Hz
+        refreshRate = 60*1000;  // 60 * 1000 Hz
     }
 
-//fb_var_screeninfo结构体info的成员变量width和height用来描述显示屏的宽度和高度
-//，以毫米（mm）为单位
+    //fb_var_screeninfo结构体info的成员变量width和height用来描述显示屏的宽度和高度
+    //，以毫米（mm）为单位
     if (int(info.width) <= 0 || int(info.height) <= 0) {
         // the driver doesn't return that information
         // default to 160 dpi
@@ -236,7 +239,7 @@ int mapFrameBufferLocked(struct private_module_t* module)
 
     float xdpi = (info.xres * 25.4f) / info.width;
     float ydpi = (info.yres * 25.4f) / info.height;
-    float fps  = refreshRate / 1000.0f;
+    float fps  = refreshRate / 1000.0f; //real HZ
 
     ALOGI(   "using (fd=%d)\n"
             "id           = %s\n"
@@ -288,12 +291,15 @@ int mapFrameBufferLocked(struct private_module_t* module)
      */
 
     int err;
+    //finfo.line_length * info.yres_virtual=整个系统帧缓冲区的大小，计算完后对齐到页面边界
     size_t fbSize = roundUpToPageSize(finfo.line_length * info.yres_virtual);
+    //这里进行内存分配
     module->framebuffer = new private_handle_t(dup(fd), fbSize, 0);
 
     //计算是整个系统帧缓冲区可以划分为多少个图形缓冲区来使用
     module->numBuffers = info.yres_virtual / info.yres;
     //设置为0，表示系统帧缓冲区中的所有图形缓冲区都是处于空闲状态，即它们可以分配出去给应用程序使用
+    //假设2个缓冲区，有4个值，是00,01,10,11,00表示全空闲，01表示第1个空闲
     module->bufferMask = 0;
 
     void* vaddr = mmap(0, fbSize, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
@@ -301,6 +307,8 @@ int mapFrameBufferLocked(struct private_module_t* module)
         ALOGE("Error mapping the framebuffer (%s)", strerror(errno));
         return -errno;
     }
+    //base保存的即为系统帧缓冲区在当前进程的地址空间中的起始地址
+    //Gralloc模块以后就可以从这块地址空间中分配图形缓冲区给当前进程使用。
     module->framebuffer->base = intptr_t(vaddr);
     memset(vaddr, 0, fbSize);
     return 0;
@@ -347,6 +355,11 @@ int fb_device_open(hw_module_t const* module, const char* name,
         private_module_t* m = (private_module_t*)module;
         status = mapFrameBuffer(m);
         if (status >= 0) {
+            /**
+             * bits_per_pixel：显示屏上每个像素占用的位数，向右移3位=/8，得到每个像素占用字节数
+             * stride = 每行字节数 / 每个像素占用字节数 = 一行需要多少个字节
+             * 
+            */
             int stride = m->finfo.line_length / (m->info.bits_per_pixel >> 3);
             int format = (m->info.bits_per_pixel == 32)
                          ? (m->info.red.offset ? HAL_PIXEL_FORMAT_BGRA_8888 : HAL_PIXEL_FORMAT_RGBX_8888)

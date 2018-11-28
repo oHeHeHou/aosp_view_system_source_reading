@@ -112,7 +112,8 @@ static int gralloc_alloc_framebuffer_locked(alloc_device_t* dev,
     if (m->framebuffer == NULL) {
         // initialize the framebuffer, the framebuffer is mapped once
         // and forever.
-        //给Module的framebuffer分配空间,只初始化一次
+        //给Module的framebuffer初始化缓冲区的地址空间，并填充一些buffer参数
+        //调用framebuffer.cpp的mapFrameBufferLocked，初始化好的地址指向m->base
         int err = mapFrameBufferLocked(m);
         if (err < 0) {
             return err;
@@ -120,9 +121,10 @@ static int gralloc_alloc_framebuffer_locked(alloc_device_t* dev,
     }
 
     const uint32_t bufferMask = m->bufferMask;
-    const uint32_t numBuffers = m->numBuffers;
+    const uint32_t numBuffers = m->numBuffers;//缓冲区数量
     //每一行所占用的字节数*分辨率高=1个屏幕的缓冲区的大小
     const size_t bufferSize = m->finfo.line_length * m->info.yres;
+    //正常情况下会有2个buffer做双缓冲，如果只有1个，那么要从内存中来分配缓冲区,否则从帧缓冲区中来分配
     if (numBuffers == 1) {
         // If we have only one buffer, we never use page-flipping. Instead,
         // we return a regular buffer which will be memcpy'ed to the main
@@ -130,7 +132,8 @@ static int gralloc_alloc_framebuffer_locked(alloc_device_t* dev,
         int newUsage = (usage & ~GRALLOC_USAGE_HW_FB) | GRALLOC_USAGE_HW_2D;
         return gralloc_alloc_buffer(dev, bufferSize, newUsage, pHandle);
     }
-
+    //图形缓冲区已经全分配出去了
+    //举例bufferMask = 11，numBuffers=2,1LU<<numBuffers)-1=3=0x11 == 11
     if (bufferMask >= ((1LU<<numBuffers)-1)) {
         // We ran out of buffers.
         return -ENOMEM;
@@ -142,6 +145,7 @@ static int gralloc_alloc_framebuffer_locked(alloc_device_t* dev,
             private_handle_t::PRIV_FLAGS_FRAMEBUFFER);
 
     // find a free slot
+    //遍历bufferMask的值，发现0位，表示是空闲的
     for (uint32_t i=0 ; i<numBuffers ; i++) {
         if ((bufferMask & (1LU<<i)) == 0) {
             m->bufferMask |= (1LU<<i);
@@ -176,7 +180,7 @@ static int gralloc_alloc_buffer(alloc_device_t* dev,
     int fd = -1;
 
     size = roundUpToPageSize(size);
-    
+    //创建匿名共享内存并分配空间
     fd = ashmem_create_region("gralloc-buffer", size);
     if (fd < 0) {
         ALOGE("couldn't create ashmem (%s)", strerror(-errno));
@@ -213,7 +217,7 @@ static int gralloc_alloc(alloc_device_t* dev,
     if (!pHandle || !pStride)
         return -EINVAL;
 
-    int bytesPerPixel = 0;
+    int bytesPerPixel = 0; //每个像素需要的字节
     switch (format) {
         case HAL_PIXEL_FORMAT_RGBA_FP16:
             bytesPerPixel = 8;
@@ -238,13 +242,16 @@ static int gralloc_alloc(alloc_device_t* dev,
     const size_t tileHeight = 2;
 
     size_t stride = align(width, tileWidth);
+    //保存整个图像需要的字节数
     size_t size = align(height, tileHeight) * stride * bytesPerPixel + 4;
 
     int err;
     //buffer被用于framebuffer
     if (usage & GRALLOC_USAGE_HW_FB) {
+        //在系统帧缓冲区中分配图形缓冲区
         err = gralloc_alloc_framebuffer(dev, size, usage, pHandle);
     } else {
+        //在内存分配图形缓冲区
         err = gralloc_alloc_buffer(dev, size, usage, pHandle);
     }
 

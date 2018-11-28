@@ -39,23 +39,33 @@ struct private_module_t {
 
     private_handle_t* framebuffer;
     uint32_t flags;  //指向图形缓冲区的句柄
-    uint32_t numBuffers; //帧缓冲个数
-    uint32_t bufferMask; //帧缓冲的使用情况
+    /**
+     * 系统帧缓冲区包含有多少个图形缓冲区
+     * 一个帧缓冲区包含有多少个图形缓冲区是与它的可视分辨率以及虚拟分辨率的大小有关的。
+     * 例如，如果一个帧缓冲区的可视分辨率为800 x 600，而虚拟分辨率为1600 x 600，
+     * 那么这个帧缓冲区就可以包含有两个图形缓冲区
+     */
+    uint32_t numBuffers;
+    /**
+     * 帧缓冲的使用情况
+     * 00分别表示两个图缓冲区都是空闲的，01表示第2个图形缓冲区已经分配出去
+    */
+    uint32_t bufferMask;
     pthread_mutex_t lock; //保护结构体private_module_t的并行访问
     buffer_handle_t currentBuffer; //当前正在被渲染的图形缓冲区
     int pmem_master; //pmem设备节点的描述符
     void* pmem_master_base; //pmem的起始虚拟地址，平台中内存有ashmen、pmem等多种内存类型
 
-    struct fb_var_screeninfo info; //lcd的可变参数
-    struct fb_fix_screeninfo finfo; //lcd的固定参数
+    struct fb_var_screeninfo info; //屏幕设备的可变参数
+    struct fb_fix_screeninfo finfo; //屏幕设备的固定参数
     float xdpi;
     float ydpi;
-    float fps; //lcd的刷新率
+    float fps; //屏幕设备的刷新率
 };
 
 /*****************************************************************************/
 /**
-    应用开发程序自己操作的缓冲区数据结构
+    应用开发程序自己操作的缓冲区数据结构，可能是在帧缓冲区中分配的，也可能是在内存中分配的
 */
 
 #ifdef __cplusplus
@@ -65,7 +75,7 @@ struct private_handle_t {
     struct native_handle nativeHandle;
 #endif
 
-    enum {
+enum {
         PRIV_FLAGS_FRAMEBUFFER = 0x00000001
     };
 
@@ -78,7 +88,7 @@ struct private_handle_t {
     int     offset; //图形缓冲区的偏移地址
 
     // FIXME: the attributes below should be out-of-line
-    uint64_t base __attribute__((aligned(8)));
+    uint64_t base __attribute__((aligned(8))); //图形缓冲区的实际地址
     int     pid; //图形缓冲区的创建者的PID
 
 #ifdef __cplusplus
