@@ -112,7 +112,7 @@ static int gralloc_alloc_framebuffer_locked(alloc_device_t* dev,
     if (m->framebuffer == NULL) {
         // initialize the framebuffer, the framebuffer is mapped once
         // and forever.
-        //给Module的framebuffer初始化缓冲区的地址空间，并填充一些buffer参数
+        //给Module的framebuffer初始化缓冲区
         //调用framebuffer.cpp的mapFrameBufferLocked，初始化好的地址指向m->base
         int err = mapFrameBufferLocked(m);
         if (err < 0) {
@@ -270,14 +270,17 @@ static int gralloc_free(alloc_device_t* dev,
         return -EINVAL;
 
     private_handle_t const* hnd = reinterpret_cast<private_handle_t const*>(handle);
+    //根据PRIV_FLAGS_FRAMEBUFFER判断是在内存中分配还是系统帧缓冲区中分配
     if (hnd->flags & private_handle_t::PRIV_FLAGS_FRAMEBUFFER) {
         // free this buffer
         private_module_t* m = reinterpret_cast<private_module_t*>(
                 dev->common.module);
         const size_t bufferSize = m->finfo.line_length * m->info.yres;
+        //计算出这个已分配的缓冲区是系统帧缓冲区的第几个位置
         int index = (hnd->base - m->framebuffer->base) / bufferSize;
+        //把对应位置的flag置为0
         m->bufferMask &= ~(1<<index); 
-    } else { 
+    } else {  //内存中分配的
         gralloc_module_t* module = reinterpret_cast<gralloc_module_t*>(
                 dev->common.module);
         terminateBuffer(module, const_cast<private_handle_t*>(hnd));

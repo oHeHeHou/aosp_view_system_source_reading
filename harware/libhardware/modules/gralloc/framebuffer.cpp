@@ -89,6 +89,7 @@ static int fb_setUpdateRect(struct framebuffer_device_t* dev,
     return 0;
 }
 
+//应用程序将画面写入到图形缓冲区之后需要将它渲染到系统帧缓冲区上
 static int fb_post(struct framebuffer_device_t* dev, buffer_handle_t buffer)
 {
     if (private_handle_t::validate(buffer) < 0)
@@ -100,6 +101,7 @@ static int fb_post(struct framebuffer_device_t* dev, buffer_handle_t buffer)
     private_module_t* m = reinterpret_cast<private_module_t*>(
             dev->common.module);
 
+    //是在帧缓冲分配的
     if (hnd->flags & private_handle_t::PRIV_FLAGS_FRAMEBUFFER) {
         const size_t offset = hnd->base - m->framebuffer->base;
         m->info.activate = FB_ACTIVATE_VBL;
@@ -111,7 +113,7 @@ static int fb_post(struct framebuffer_device_t* dev, buffer_handle_t buffer)
         }
         m->currentBuffer = buffer;
         
-    } else {
+    } else {//是在内存中分配的
         // If we can't do the page_flip, just copy the buffer to the front 
         // FIXME: use copybit HAL instead of memcpy
         

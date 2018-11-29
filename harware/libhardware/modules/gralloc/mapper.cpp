@@ -34,13 +34,13 @@
 
 
 /*****************************************************************************/
-
+//匿名共享内存中分配的图形缓冲区映射到进程的地址空间
 static int gralloc_map(gralloc_module_t const* /*module*/,
         buffer_handle_t handle,
         void** vaddr)
 {
     private_handle_t* hnd = (private_handle_t*)handle;
-    if (!(hnd->flags & private_handle_t::PRIV_FLAGS_FRAMEBUFFER)) {
+    if (!( R)) {
         size_t size = hnd->size;
         void* mappedAddress = mmap(0, size,
                 PROT_READ|PROT_WRITE, MAP_SHARED, hnd->fd, 0);
@@ -48,6 +48,10 @@ static int gralloc_map(gralloc_module_t const* /*module*/,
             ALOGE("Could not mmap %s", strerror(errno));
             return -errno;
         }
+        /**
+         * 要注册的图形缓冲区的在被映射的匿名共享内存中的偏移量hnd->offset加上被映射的匿名共享内存的基地址hnd->base，
+         * 才可以得到要注册的图形缓冲区在当前进程中的访问地址，这个地址最终又被写入到hnd->base中去。
+        */
         hnd->base = uintptr_t(mappedAddress) + hnd->offset;
         //ALOGD("gralloc_map() succeeded fd=%d, off=%d, size=%d, vaddr=%p",
         //        hnd->fd, hnd->offset, hnd->size, mappedAddress);
@@ -74,7 +78,7 @@ static int gralloc_unmap(gralloc_module_t const* /*module*/,
 
 /*****************************************************************************/
 /**
-将一块图形缓冲区映射到一个进程的地址空间去
+将一块图形缓冲区映射到一个进程的地址空间去,即注册功能
 */
 int gralloc_register_buffer(gralloc_module_t const* module,
         buffer_handle_t handle)
