@@ -189,6 +189,13 @@ int hw_get_module_by_class(const char *class_id, const char *inst,
         }
     }
 
+    /* Loop through the configuration variants looking for a module 
+
+        led.trout.so //ro.product.board, name=led, prop=trout
+        led.msm7k.so //ro.board.platform, name=led, prop=msm7k
+        led.ARMV6.so //ro.arch, name=led, prop=ARMV6
+    */
+
     for (i=0 ; i<HAL_VARIANT_KEYS_COUNT; i++) {
         if (property_get(variant_keys[i], prop, NULL) == 0) {
             continue;

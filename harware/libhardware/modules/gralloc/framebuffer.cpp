@@ -105,7 +105,9 @@ static int fb_post(struct framebuffer_device_t* dev, buffer_handle_t buffer)
     if (hnd->flags & private_handle_t::PRIV_FLAGS_FRAMEBUFFER) {
         const size_t offset = hnd->base - m->framebuffer->base;
         m->info.activate = FB_ACTIVATE_VBL;
+        //yoffset决定当前第几个(1或者2)缓冲区作为输出缓冲区
         m->info.yoffset = offset / m->finfo.line_length;
+        //图像拷贝到系统缓冲区
         if (ioctl(m->framebuffer->fd, FBIOPUT_VSCREENINFO, &m->info) == -1) {
             ALOGE("FBIOPUT_VSCREENINFO failed");
             m->base.unlock(&m->base, buffer); 
@@ -282,7 +284,7 @@ int mapFrameBufferLocked(struct private_module_t* module)
 
 
     module->flags = flags;
-    module->info = info;
+    module->info = info; //之后在fb_post被使用，用作设置系统的帧缓冲区
     module->finfo = finfo;
     module->xdpi = xdpi;
     module->ydpi = ydpi;
@@ -303,7 +305,7 @@ int mapFrameBufferLocked(struct private_module_t* module)
     //设置为0，表示系统帧缓冲区中的所有图形缓冲区都是处于空闲状态，即它们可以分配出去给应用程序使用
     //假设2个缓冲区，有4个值，是00,01,10,11,00表示全空闲，01表示第1个空闲
     module->bufferMask = 0;
-
+    //返回映射区域的地址
     void* vaddr = mmap(0, fbSize, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
     if (vaddr == MAP_FAILED) {
         ALOGE("Error mapping the framebuffer (%s)", strerror(errno));

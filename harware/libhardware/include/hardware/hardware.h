@@ -144,7 +144,7 @@ typedef struct hw_module_t {
     struct hw_module_methods_t* methods;
 
     /** module's dso */
-    void* dso; ////保存模块首地址 
+    void* dso;
 
 #ifdef __LP64__
     uint64_t reserved[32-7];

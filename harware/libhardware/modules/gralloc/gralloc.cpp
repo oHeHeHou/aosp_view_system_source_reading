@@ -140,18 +140,22 @@ static int gralloc_alloc_framebuffer_locked(alloc_device_t* dev,
     }
 
     // create a "fake" handles for it
+    //m->framebuffer->base是fb预先根据屏幕参数分配的内存起始地址
     intptr_t vaddr = intptr_t(m->framebuffer->base);
+    //新建一个private_handle_t描述要分配的缓冲区
     private_handle_t* hnd = new private_handle_t(dup(m->framebuffer->fd), size,
             private_handle_t::PRIV_FLAGS_FRAMEBUFFER);
 
     // find a free slot
-    //遍历bufferMask的值，发现0位，表示是空闲的
+    //遍历bufferMask的值，发现为0的位，表示第几个缓冲区是空闲的
     for (uint32_t i=0 ; i<numBuffers ; i++) {
+        //如果是空闲，跳出循环，直接从这个地址开始分配，否则往上加一个bufferSize的值，
+        //保证每次从系统帧缓冲区中分配出去的图形缓冲区的大小都是刚好等于显示屏一屏内容大小
         if ((bufferMask & (1LU<<i)) == 0) {
             m->bufferMask |= (1LU<<i);
             break;
         }
-        //保证每次从系统帧缓冲区中分配出去的图形缓冲区的大小都是刚好等于显示屏一屏内容大小
+        //否则从下一个空闲buffer位置开始
         vaddr += bufferSize;
     }
     //分配到的内存起始地址放入hnd->base

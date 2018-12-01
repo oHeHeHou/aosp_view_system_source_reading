@@ -49,8 +49,7 @@ static int gralloc_map(gralloc_module_t const* /*module*/,
             return -errno;
         }
         /**
-         * 要注册的图形缓冲区的在被映射的匿名共享内存中的偏移量hnd->offset加上被映射的匿名共享内存的基地址hnd->base，
-         * 才可以得到要注册的图形缓冲区在当前进程中的访问地址，这个地址最终又被写入到hnd->base中去。
+         * 要注册的图形缓冲区的在被映射的匿名共享内存中的偏移量hnd->offset加上被映射的匿名共享内存的基地址hnd->base，才可以得到要注册的图形缓冲区在当前进程中的访问地址，这个地址最终又被写入到hnd->base中去。
         */
         hnd->base = uintptr_t(mappedAddress) + hnd->offset;
         //ALOGD("gralloc_map() succeeded fd=%d, off=%d, size=%d, vaddr=%p",
@@ -126,7 +125,7 @@ int gralloc_register_buffer(gralloc_module_t const* module,
             "Registering a buffer in the process that created it. "
             "This may cause memory ordering problems.");
 
-    void *vaddr;
+    void *vaddr; //锁定的缓冲区的起始地址
     return gralloc_map(module, handle, &vaddr);
 }
 

@@ -34,11 +34,12 @@
 struct private_module_t;
 struct private_handle_t;
 
+//用于描述换冲区的属性
 struct private_module_t {
     gralloc_module_t base; //继承gralloc_module_t
 
     private_handle_t* framebuffer;
-    uint32_t flags;  //指向图形缓冲区的句柄
+    uint32_t flags;  //是否支持双缓冲,如果支持，它的PAGE_FLIP位=-1
     /**
      * 系统帧缓冲区包含有多少个图形缓冲区
      * 一个帧缓冲区包含有多少个图形缓冲区是与它的可视分辨率以及虚拟分辨率的大小有关的。
@@ -88,7 +89,7 @@ enum {
     int     offset; //图形缓冲区的偏移地址
 
     // FIXME: the attributes below should be out-of-line
-    uint64_t base __attribute__((aligned(8))); //图形缓冲区的实际地址
+    uint64_t base __attribute__((aligned(8))); //图形缓冲区的起始地址
     int     pid; //图形缓冲区的创建者的PID
 
 #ifdef __cplusplus

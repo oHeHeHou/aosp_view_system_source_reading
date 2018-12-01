@@ -10,3 +10,4 @@ Hardware很多代码用C With Class实现，所以这里用类图来表示关系
 ####代码体现：
 1. 加载Gralloc模块,Gralloc模块包含gralloc和fb设备
 2. 打开Gralloc模块中的gralloc设备和fb设备，gralloc负责分配缓冲区，fb负责渲染/操作缓冲区
+3. 通过FBIOPUT_VSCREENINFO将渲染好的缓冲区拷贝到系统缓冲区
